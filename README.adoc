@@ -1,4 +1,4 @@
-= K3s Etcd monitoring using Rancher Monitoring Chart 
+= Collecting different audit logs using logging operator in rancher
 :toc:
 
 
