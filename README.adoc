@@ -498,6 +498,7 @@ and https://ranchermanager.docs.rancher.com/v2.6/integrations-in-rancher/logging
 +
 [source,yaml]
 ----
+# This output file simply create the logs inside the /tmp folder inside the "rancher-logging-root-fluentd-0" pod, just for testing.
 apiVersion: logging.banzaicloud.io/v1beta1
 kind: Output
 metadata:
