@@ -472,15 +472,6 @@ metadata:
   name: kube-api-audit-flow
   namespace: kube-system
 spec:
-  OutputRefs:
-    - rancher-audit-logs-file
-----
-apiVersion: logging.banzaicloud.io/v1beta1
-kind: Flow
-metadata:
-  name: kube-api-audit-flow
-  namespace: kube-system
-spec:
   filters:
   - grep:
       regexp:
@@ -492,10 +483,12 @@ spec:
           component: kube-apiserver
   localOutputRefs:
     - kube-api-audit-file-output
+----
 +
 and https://ranchermanager.docs.rancher.com/v2.6/integrations-in-rancher/logging/custom-resource-configuration/flows-and-clusterflows[Flow]
 +
 [source,yaml]
+----
 apiVersion: logging.banzaicloud.io/v1beta1
 kind: Output
 metadata:
@@ -504,28 +497,24 @@ metadata:
 spec:
   file:
     path: /tmp/${tag}/rancher-audit-log
-
-
-
-----
+---
 apiVersion: v1
 kind: Secret
 metadata:
   name: kube-api-audit-s3
-  namespace: cattle-logging-system
+  namespace: kube-system
 type: Opaque
 data:
   awsAccessKeyId: xxxx=
   awsSecretAccessKey: xxxx==
 ---
 apiVersion: logging.banzaicloud.io/v1beta1
-kind: ClusterOutput
+kind: Output
 metadata:
  name: kube-api-audit-s3-output
- namespace: cattle-logging-system
+ namespace: kube-system
 spec:
 #https://github.com/banzaicloud/logging-operator/blob/master/charts/logging-operator/crds/logging.banzaicloud.io_outputs.yaml
-  loggingRef: rancher-logging-kube-audit   # this reference is fixed and must be here
   s3:
     aws_key_id:
       valueFrom:
