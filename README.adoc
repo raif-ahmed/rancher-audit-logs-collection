@@ -468,8 +468,8 @@ kube-apiserver-arg:
 <1> The audit Policy file you created in previous step
 <2> Not specifying this flag disables log backend. - means standard out 
 
-==== Collect audit logs
-Here is as the logs are generated in the kube-api stdout we only need to collect the logs using rancher-logging flow.
+==== Collect audit logs from stdout
+Here is as the logs are generated in the kube-api stdout, we only need to collect the logs using rancher-logging flow and forward them to the desired output.
 
 
 . We will need to create the needed logging https://ranchermanager.docs.rancher.com/v2.6/integrations-in-rancher/logging/custom-resource-configuration/outputs-and-clusteroutputs[Output] 
