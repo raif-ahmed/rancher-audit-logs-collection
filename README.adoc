@@ -479,7 +479,7 @@ spec:
   - grep:
       regexp: <1>
       - key: message
-        pattern: /.*\\"apiVersion\\":\\"audit.k8s.io\/v1\\".*/
+        pattern: /.*\\"apiVersion\\":\\"audit\.k8s\.io\/v1\\".*/
         
   match:
     - select:
