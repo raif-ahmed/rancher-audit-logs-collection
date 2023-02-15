@@ -180,12 +180,16 @@ kube-api is more tricky, as the kube-api will generate the logs in the file syst
 
 According to https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/#log-backend[Log backend]
 
-> Log backend
+> *Log backend*
+>
 > The log backend writes audit events to a file in JSONlines format. You can configure the log audit backend using the following kube-apiserver flags:
 >
-> --audit-log-path specifies the log file path that log backend uses to write audit events. **Not specifying this flag disables log backend. - means standard out**
+> --audit-log-path specifies the log file path that log backend uses to write audit events. *Not specifying this flag disables log backend. - means standard out*
+>
 > --audit-log-maxage defined the maximum number of days to retain old audit log files
+>
 > --audit-log-maxbackup defines the maximum number of audit log files to retain
+>
 > --audit-log-maxsize defines the maximum size in megabytes of the audit log file before it gets rotated
 
 
@@ -479,7 +483,7 @@ spec:
   - grep:
       regexp: <1>
       - key: message
-        pattern: /.*\\"apiVersion\\":\\"audit\.k8s\.io\/v1\\".*/
+        pattern: /.*\\"apiVersion\\":\\"audit\.k8s\.io\/v1\\".*|"apiVersion":"audit\.k8s\.io\/v1".*/
         
   match:
     - select:
