@@ -161,7 +161,8 @@ ps -ef | grep kube-apiserver | grep -v grep
 ----
 
 . From the UI of rancher Cluster Management > Edit Config > RKE Options > Authorized Cluster Endpoint -- check Enabled
-
++
+image::img/2.jpg[]
 . Go back to cluster explorer and download the KubeConfig
 +
 image::img/1.jpg[]
