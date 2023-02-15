@@ -114,15 +114,15 @@ kube-api is more tricky, as the kube-api will generate the logs in the file syst
 
 So lets start from the beginning
 
-=== Enable ACE on RKE2
-Although it is not is the scope of this blog but quickly lets enable ACE on downstream RKE2 cluster, You can skip to next section if you want.
+=== Enable ACE on K3s
+Although it is not is the scope of this blog but quickly lets enable ACE on downstream K3s cluster, You can skip to next section if you want.
 
-. follow https://ranchermanager.docs.rancher.com/v2.6/how-to-guides/new-user-guides/kubernetes-clusters-in-rancher-setup/register-existing-clusters#authorized-cluster-endpoint-support-for-rke2-and-k3s-clusters[enable ACE on RKE2]
+. follow https://ranchermanager.docs.rancher.com/v2.6/how-to-guides/new-user-guides/kubernetes-clusters-in-rancher-setup/register-existing-clusters#authorized-cluster-endpoint-support-for-rke2-and-k3s-clusters[enable ACE on K3s]
 .. Create kube-api-authn-webhook.yaml
 +
 [source,bash]
 ----
-$ sudo cat  <<EOF > /var/lib/rancher/rke2/kube-api-authn-webhook.yaml
+$ sudo cat  <<EOF > /var/lib/rancher/k3s/kube-api-authn-webhook.yaml
 apiVersion: v1
 kind: Config
 clusters:
@@ -147,10 +147,10 @@ EOF
 +	
 [source,bash]
 ----
-$ sudo vi /etc/rancher/rke2/config.yaml
+$ sudo vi /etc/rancher/k3s/config.yaml
 ..	
 kube-apiserver-arg:
-  - authentication-token-webhook-config-file=/var/lib/rancher/rke2/kube-api-authn-webhook.yaml
+  - authentication-token-webhook-config-file=/var/lib/rancher/k3s/kube-api-authn-webhook.yaml
 ----
 +
 then ensure that the api-server started with the new parameters
@@ -182,7 +182,7 @@ kubectl config get-contexts
 +
 [source,bash]
 ----
-$ sudo cat  <<EOF > /etc/rancher/rke2/audit-policy.yaml
+$ sudo cat  <<EOF > /etc/rancher/k3s/audit-policy.yaml
 apiVersion: audit.k8s.io/v1
 kind: Policy
 rules:
@@ -212,11 +212,11 @@ EOF
 +	
 [source,bash]
 ----
-$ sudo  vi /etc/rancher/rke2/config.yaml
+$ sudo  vi /etc/rancher/k3s/config.yaml
 ..
 kube-apiserver-arg:
-  - audit-policy-file=/etc/rancher/rke2/audit-policy.yaml <1>
-  - audit-log-path=/var/lib/rancher/rke2/server/logs/audit.log <2>
+  - audit-policy-file=/etc/rancher/k3s/audit-policy.yaml <1>
+  - audit-log-path=/var/lib/rancher/k3s/server/logs/audit.log <2>
   - audit-log-maxage=30
   - audit-log-maxbackup=10
   - audit-log-maxsize=100
@@ -245,7 +245,7 @@ If you enable kubeAudit logging in the rancher-logging app, it will create the r
             - effect: NoExecute
               key: node-role.kubernetes.io/etcd
               value: 'true'
-        pathPrefix: '/var/lib/rancher/rke2/server/logs' <3>
+        pathPrefix: '/var/lib/rancher/k3s/server/logs' <3>
 ----
 <1> The audit file should match the one defined in the kube-apiserver-arg created ibn previous step
 <2> Enable, it is disabled by default  
@@ -275,7 +275,7 @@ spec:
     extraVolumeMounts:
     - destination: /kube-audit-logs
       readOnly: true
-      source: /var/lib/rancher/rke2/server/logs
+      source: /var/lib/rancher/k3s/server/logs
     image:
       repository: rancher/mirrored-fluent-fluent-bit
       tag: 1.9.3-debug
