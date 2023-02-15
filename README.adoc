@@ -97,7 +97,11 @@ metadata:
   namespace: cattle-system (1)
 spec:
   filters:
-    - tag_normaliser: {}
+  # - grep:
+  #     exclude:
+  #     - key: message
+  #       pattern: /.*\\"method\\":\\"GET\\".*|.*"method":"GET".*/
+  - tag_normaliser: {}
   match:
     - select:
         container_names : 
@@ -473,9 +477,10 @@ metadata:
 spec:
   filters:
   - grep:
-      regexp:
-      - key: apiVersion
-        pattern: /^audit\.k8s\.io\/v1$/
+      regexp: <1>
+      - key: message
+        pattern: /.*\\"apiVersion\\":\\"audit.k8s.io\/v1\\".*/
+        
   match:
     - select:
         labels:
@@ -483,6 +488,7 @@ spec:
   localOutputRefs:
     - kube-api-audit-file-output
 ----
+<1> We only want to filter and include messages which are audit messages not normal log messages, so we search for messages with (\"apiVersion\":\"audit.k8s.io/v1\")
 +
 and https://ranchermanager.docs.rancher.com/v2.6/integrations-in-rancher/logging/custom-resource-configuration/flows-and-clusterflows[Flow]
 +
@@ -496,6 +502,10 @@ metadata:
 spec:
   file:
     path: /tmp/${tag}/rancher-audit-log
+    buffer:
+     timekey: 1m
+     timekey_wait: 10s
+     timekey_use_utc: true
 ---
 apiVersion: v1
 kind: Secret
