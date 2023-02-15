@@ -194,12 +194,15 @@ According to https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/#log-bac
 
 
 So we will take advantage of this and configure the Kube-api audit logs collection according to how kube-api is deployed, if it is 
-. Static pod like rke2, we will simply emit the audit-log to stdout 
-. OS service like K3s, we will emit the logs to a file
 
-So lets start from the beginning
+. OS service like K3s, we will emit the logs to a file
+. Static pod like rke2, we will simply emit the audit-log to stdout 
+
+
+So lets start 
 
 === Collect API-server audit logs on K3s
+So K3s bundles the Kubernetes components (kube-apiserver, kube-controller-manager, kube-scheduler, kubelet, kube-proxy) into combined processes that are presented as an OS process (systemd service unit)
 
 ==== Enable API-server audit logs
 
