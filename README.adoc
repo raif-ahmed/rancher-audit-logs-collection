@@ -2,9 +2,11 @@
 :toc:
 
 
+[bibliography]
 == References
-https://ranchermanager.docs.rancher.com/v2.6/reference-guides/rancher-manager-architecture/architecture-recommendations#architecture-for-an-authorized-cluster-endpoint-ace
-https://ranchermanager.docs.rancher.com/v2.6/how-to-guides/advanced-user-guides/enable-api-audit-log
+* https://ranchermanager.docs.rancher.com/v2.6/reference-guides/rancher-manager-architecture/architecture-recommendations#architecture-for-an-authorized-cluster-endpoint-ace
+* https://ranchermanager.docs.rancher.com/v2.6/how-to-guides/advanced-user-guides/enable-api-audit-log
+* https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/
 
 == Introduction
 
@@ -21,10 +23,10 @@ Rancher offer an easy to setup sidecar container that you can enable and it will
 But what if you connect directly to downstream cluster, either using ACE or even kubeconfig client certificate ?
 Then you need to enable kube-api audit logs.
 
-NOTE
-===
+[NOTE]
+====
 ACE or Authorized Cluster Endpoint allows you to access your downstream Kubernetes cluster with the kubectl CLI and a kubeconfig file (rancher create for you multiple Kubernetes contexts to access your downstream cluster, either pointing to your lb or your master nodes). In this scenario, the downstream cluster's Kubernetes API server authenticates you by calling a webhook (the kube-api-auth microservice) that Rancher set up. The capability to connect directly to the cluster's Kubernetes API server, is important because it lets you access your downstream cluster if you can't connect to Rancher. 
-===
+====
 
 == Rancher Audit Logs
 
@@ -108,14 +110,8 @@ spec:
 
 This will collect your rancher audit logs and forward them to S3 for archiving 
 
-== Kube-api Audit logs
-
-kube-api is more tricky, as the kube-api will generate the logs in the file system. 
-
-So lets start from the beginning
-
-=== Enable ACE on K3s
-Although it is not is the scope of this blog but quickly lets enable ACE on downstream K3s cluster, You can skip to next section if you want.
+== Enable ACE on K3s
+Although it is not is the scope of this blog but quickly lets enable ACE on a downstream K3s cluster, You can skip to next section if you want.
 
 . follow https://ranchermanager.docs.rancher.com/v2.6/how-to-guides/new-user-guides/kubernetes-clusters-in-rancher-setup/register-existing-clusters#authorized-cluster-endpoint-support-for-rke2-and-k3s-clusters[enable ACE on K3s]
 .. Create kube-api-authn-webhook.yaml
@@ -174,7 +170,30 @@ then check the available contexts
 kubectl config get-contexts
 ----
 
-=== Enable API-server audit logs
+== Kube-api Audit logs
+
+kube-api is more tricky, as the kube-api will generate the logs in the file system or to stdout according to your config. 
+
+According to https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/#log-backend[Log backend]
+
+> Log backend
+> The log backend writes audit events to a file in JSONlines format. You can configure the log audit backend using the following kube-apiserver flags:
+>
+> --audit-log-path specifies the log file path that log backend uses to write audit events. **Not specifying this flag disables log backend. - means standard out**
+> --audit-log-maxage defined the maximum number of days to retain old audit log files
+> --audit-log-maxbackup defines the maximum number of audit log files to retain
+> --audit-log-maxsize defines the maximum size in megabytes of the audit log file before it gets rotated
+
+
+So we will take advantage of this and configure the Kube-api audit logs collection according to how kube-api is deployed, if it is 
+. Static pod like rke2, we will simply emit the audit-log to stdout 
+. OS service like K3s, we will emit the logs to a file
+
+So lets start from the beginning
+
+=== Collect API-server audit logs on K3s
+
+==== Enable API-server audit logs
 
 . follow https://ranchermanager.docs.rancher.com/reference-guides/rancher-security/rancher-v2.6-hardening-guides/rke2-hardening-guide-with-cis-v1.6-benchmark#api-server-audit-configuration[enable audit-logs for API-server]
 
@@ -225,11 +244,11 @@ kube-apiserver-arg:
 <1> The audit Policy file you created in previous step
 <2> The location on the file system, where the logs will be generated 
 
-=== Collect audit logs from file system
+==== Collect audit log from file
 Here is the magic, as very little documentation on the internet around this one. So rancher-logging have a very interesting feature named kubeAudit.
 If you enable kubeAudit logging in the rancher-logging app, it will create the rancher-logging-kube-audit-fluentbit DaemonSet running on master/controlplane nodes. It is mainly for grabbing the logs generated from kube-api using https://docs.fluentbit.io/manual/pipeline/inputs/tail[inputTail plugin]
 
-. We ill need to ensure that we enable & configure the kubeAudit during the installation of the rancher-logging. If rancher-logging is already installed then edit it to enable kubeAudit. 
+. We will need to ensure that we enable & configure the kubeAudit during the installation of the rancher-logging. If rancher-logging is already installed then edit it to enable kubeAudit. 
 +
 [source,yaml]
 ----
@@ -333,11 +352,11 @@ Last thing, as usual, We will need to create the needed logging https://rancherm
 apiVersion: logging.banzaicloud.io/v1beta1
 kind: ClusterFlow
 metadata:
-  name: rancher-audit-flow
+  name: kube-api-audit-flow
   namespace: "cattle-logging-system"
 spec:
   globalOutputRefs:
-    - rancher-audit-logs-file
+    - kube-api-audit-s3-output
   loggingRef: rancher-logging-kube-audit  # this reference is fixed and must be here
 ----
 +
@@ -345,13 +364,184 @@ and https://ranchermanager.docs.rancher.com/v2.6/integrations-in-rancher/logging
 +
 [source,yaml]
 ----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kube-api-audit-s3
+  namespace: cattle-logging-system
+type: Opaque
+data:
+  awsAccessKeyId: xxxx=
+  awsSecretAccessKey: xxxx==
+---
 apiVersion: logging.banzaicloud.io/v1beta1
 kind: ClusterOutput
 metadata:
-  name: rancher-audit-logs-file
-  namespace: cattle-logging-system
+ name: kube-api-audit-s3-output
+ namespace: cattle-logging-system
+spec:
+#https://github.com/banzaicloud/logging-operator/blob/master/charts/logging-operator/crds/logging.banzaicloud.io_outputs.yaml
+  loggingRef: rancher-logging-kube-audit   # this reference is fixed and must be here
+  s3:
+    aws_key_id:
+      valueFrom:
+        secretKeyRef:
+          name: kube-api-audit-s3
+          key: awsAccessKeyId
+    aws_sec_key:
+      valueFrom:
+        secretKeyRef:
+          name: kube-api-audit-s3
+          key: awsSecretAccessKey
+    s3_bucket: rancher-sample-logging
+    s3_region: eu-central-1
+    path: logs/${tag}/%Y/%m/%d/
+    buffer:
+      timekey: 10m
+      timekey_wait: 30s
+      timekey_use_utc: true
+----
+-----------------************************----------------
+
+=== Collect API-server audit logs on RKE2
+
+Here things are bit different as RKE2 run kube-api as static pod in namespace kube-system, so we can directly use rancher-logging to collect the logs of the pod.
+
+==== Enable API-server audit logs
+
+. follow https://ranchermanager.docs.rancher.com/reference-guides/rancher-security/rancher-v2.6-hardening-guides/rke2-hardening-guide-with-cis-v1.6-benchmark#api-server-audit-configuration[enable audit-logs for API-server]
+
+.. Create audit-policy.yaml file we will use same previous policy file but only different location, for more info regarding Policy file check https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/#audit-policy[K8s Audit policy]
++
+[source,bash]
+----
+$ sudo cat  <<EOF > /etc/rancher/rke2/audit-policy.yaml
+apiVersion: audit.k8s.io/v1
+kind: Policy
+rules:
+- level: None
+  verbs: ["get", "watch", "list"]
+
+- level: None
+  resources:
+  - group: "" # core
+    resources: ["events"]
+
+- level: None
+  users:
+  - "system:kube-scheduler"
+  - "system:kube-proxy"
+  - "system:apiserver"
+  - "system:kube-controller-manager"
+
+- level: None
+  userGroups: ["system:nodes"]
+
+- level: RequestResponse
+EOF
+----
++
+.. append the kube-apiserver-arg parameters to config.yaml
++	
+[source,bash]
+----
+$ sudo  vi /etc/rancher/rke2/config.yaml
+..
+kube-apiserver-arg:
+  - audit-policy-file=/etc/rancher/rke2/audit-policy.yaml <1>
+  - audit-log-path=- <2>
+  - audit-log-maxage=30
+  - audit-log-maxbackup=10
+  - audit-log-maxsize=100
+  ...
+----
+<1> The audit Policy file you created in previous step
+<2> Not specifying this flag disables log backend. - means standard out 
+
+==== Collect audit logs
+Here is as the logs are generated in the kube-api stdout we only need to collect the logs using rancher-logging flow.
+
+
+. We will need to create the needed logging https://ranchermanager.docs.rancher.com/v2.6/integrations-in-rancher/logging/custom-resource-configuration/outputs-and-clusteroutputs[Output] 
++
+[source,yaml]
+----
+apiVersion: logging.banzaicloud.io/v1beta1
+kind: Flow
+metadata:
+  name: kube-api-audit-flow
+  namespace: kube-system
+spec:
+  OutputRefs:
+    - rancher-audit-logs-file
+----
+apiVersion: logging.banzaicloud.io/v1beta1
+kind: Flow
+metadata:
+  name: kube-api-audit-flow
+  namespace: kube-system
+spec:
+  filters:
+  - grep:
+      regexp:
+      - key: apiVersion
+        pattern: /^audit\.k8s\.io\/v1$/
+  match:
+    - select:
+        labels:
+          component: kube-apiserver
+  localOutputRefs:
+    - kube-api-audit-file-output
++
+and https://ranchermanager.docs.rancher.com/v2.6/integrations-in-rancher/logging/custom-resource-configuration/flows-and-clusterflows[Flow]
++
+[source,yaml]
+apiVersion: logging.banzaicloud.io/v1beta1
+kind: Output
+metadata:
+  name: kube-api-audit-file-output
+  namespace: kube-system
 spec:
   file:
     path: /tmp/${tag}/rancher-audit-log
+
+
+
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kube-api-audit-s3
+  namespace: cattle-logging-system
+type: Opaque
+data:
+  awsAccessKeyId: xxxx=
+  awsSecretAccessKey: xxxx==
+---
+apiVersion: logging.banzaicloud.io/v1beta1
+kind: ClusterOutput
+metadata:
+ name: kube-api-audit-s3-output
+ namespace: cattle-logging-system
+spec:
+#https://github.com/banzaicloud/logging-operator/blob/master/charts/logging-operator/crds/logging.banzaicloud.io_outputs.yaml
   loggingRef: rancher-logging-kube-audit   # this reference is fixed and must be here
+  s3:
+    aws_key_id:
+      valueFrom:
+        secretKeyRef:
+          name: kube-api-audit-s3
+          key: awsAccessKeyId
+    aws_sec_key:
+      valueFrom:
+        secretKeyRef:
+          name: kube-api-audit-s3
+          key: awsSecretAccessKey
+    s3_bucket: rancher-sample-logging
+    s3_region: eu-central-1
+    path: logs/${tag}/%Y/%m/%d/
+    buffer:
+      timekey: 10m
+      timekey_wait: 30s
+      timekey_use_utc: true
 ----
