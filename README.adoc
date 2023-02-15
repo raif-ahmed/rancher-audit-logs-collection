@@ -492,7 +492,7 @@ spec:
   localOutputRefs:
     - kube-api-audit-file-output
 ----
-<1> We only want to filter and include messages which are audit messages not normal log messages, so we search for messages with (\"apiVersion\":\"audit.k8s.io/v1\")
+<1> We only want to filter and include messages which are audit messages not normal log messages, so we search for messages with "apiVersion":"audit.k8s.io/v1"
 +
 and https://ranchermanager.docs.rancher.com/v2.6/integrations-in-rancher/logging/custom-resource-configuration/flows-and-clusterflows[Flow]
 +
