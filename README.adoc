@@ -401,7 +401,6 @@ spec:
       timekey_wait: 30s
       timekey_use_utc: true
 ----
------------------************************----------------
 
 === Collect API-server audit logs on RKE2
 
